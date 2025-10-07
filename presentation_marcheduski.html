@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de Bord Interactif du Marché du Ski</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Soothing & Trustworthy -->
+    <!-- Application Structure Plan: A single-page dashboard with two main views switched by top-level buttons: 'Vue d'ensemble' and 'Analyse par Profil'. The 'Vue d'ensemble' provides high-level market context. The 'Analyse par Profil' is the interactive core, allowing users to select a skier profile ('Challenger', 'Crew', 'Explorer') via filter buttons. Clicking a profile dynamically updates all charts and text on the page to reflect that specific segment's data. This task-oriented, interactive dashboard structure was chosen to empower users to actively explore and compare segments, which is more engaging and insightful than a static, linear report. -->
+    <!-- Visualization & Content Choices: 1. Overall Market: Goal: Inform -> Big number KPIs and a Donut Chart (Chart.js) for quick context. 2. Profile Selector: Goal: Interact -> HTML Buttons trigger JS updates. 3. Demographics: Goal: Compare -> Horizontal Bar Chart (Chart.js) to clearly compare generational breakdown per profile. 4. Product Range: Goal: Compare -> Side-by-side Radar Charts (Chart.js) to show multi-variable comparison between Global and Decathlon positioning for a profile. This offers richer insight than simple bars. 5. Customer Status: Goal: Inform -> Donut Chart (Chart.js) for a simple part-to-whole view of Decathlon's customer base for a profile. 6. Descriptions: Goal: Inform -> Dynamic text blocks update to provide qualitative context for the selected profile. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+        }
+        .nav-btn {
+            transition: all 0.3s ease;
+        }
+        .nav-btn.active {
+            background-color: #227272;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .filter-btn {
+            transition: all 0.3s ease;
+        }
+        .filter-btn.active {
+            background-color: #1A4E5F;
+            color: white;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-[#1A4E5F] mb-2">Tableau de Bord Interactif du Marché du Ski</h1>
+            <p class="text-md text-gray-600 max-w-3xl mx-auto">Naviguez entre la vue d'ensemble et l'analyse par profil pour explorer les données du marché.</p>
+        </header>
+
+        <nav class="flex justify-center mb-8 bg-white p-2 rounded-lg shadow-md max-w-md mx-auto">
+            <button id="overview-btn" class="nav-btn active w-1/2 py-2 px-4 text-center font-semibold rounded-md">Vue d'ensemble</button>
+            <button id="analysis-btn" class="nav-btn w-1/2 py-2 px-4 text-center font-semibold rounded-md">Analyse par Profil</button>
+        </nav>
+
+        <main>
+            <section id="overview-section">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-1 bg-white p-6 rounded-lg shadow-md flex flex-col justify-center items-center text-center">
+                        <h2 class="text-xl font-semibold text-[#1A4E5F] mb-2">Skieurs Actifs Mondiaux</h2>
+                        <p class="text-5xl font-bold text-[#227272]">135M</p>
+                        <p class="text-gray-500 mt-1">Estimation du marché global</p>
+                    </div>
+                    <div class="md:col-span-2 bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-semibold text-center text-[#1A4E5F] mb-4">Répartition Globale des Profils de Skieurs</h2>
+                        <p class="text-center text-gray-600 max-w-xl mx-auto mb-4">Le profil "Explorer" représente la plus grande part du marché, indiquant une tendance générale vers le ski de loisir et la découverte, suivi par les skieurs axés sur la performance.</p>
+                        <div class="chart-container h-64 md:h-72">
+                            <canvas id="globalProfileChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="analysis-section" class="hidden">
+                <div class="bg-white p-4 rounded-lg shadow-md mb-8">
+                    <h2 class="text-xl font-semibold text-[#1A4E5F] mb-3 text-center">Sélectionnez un profil pour filtrer les données</h2>
+                    <div class="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-4">
+                        <button class="filter-btn py-2 px-5 rounded-md border border-gray-300" data-profile="challenger">Le Challenger</button>
+                        <button class="filter-btn py-2 px-5 rounded-md border border-gray-300" data-profile="crew">Le Crew</button>
+                        <button class="filter-btn py-2 px-5 rounded-md border border-gray-300" data-profile="explorer">L'Explorer</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+                        <h2 id="profile-title" class="text-2xl font-bold text-[#227272] mb-2"></h2>
+                        <p id="profile-description" class="text-gray-600 mb-4"></p>
+                        <div class="border-t border-gray-200 pt-4">
+                            <h3 class="font-semibold text-[#1A4E5F] mb-2">Clientèle Cible (Decathlon)</h3>
+                            <div class="chart-container h-56">
+                                <canvas id="profile-customer-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
+                         <h3 class="font-semibold text-center text-[#1A4E5F] mb-4">Répartition Démographique par Génération</h3>
+                         <div class="chart-container h-64 mb-6">
+                            <canvas id="profile-age-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="lg:col-span-5 bg-white p-6 rounded-lg shadow-md">
+                         <h3 class="font-semibold text-center text-[#1A4E5F] mb-4">Préférence par Gamme de Produits</h3>
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <div>
+                                 <h4 class="text-center font-medium text-gray-700">Marché Mondial</h4>
+                                  <div class="chart-container">
+                                      <canvas id="profile-range-market-chart"></canvas>
+                                  </div>
+                             </div>
+                              <div>
+                                 <h4 class="text-center font-medium text-gray-700">Decathlon</h4>
+                                  <div class="chart-container">
+                                      <canvas id="profile-range-decathlon-chart"></canvas>
+                                  </div>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+    </div>
+
+    <script>
+        const data = {
+            challenger: {
+                title: 'Profil : Le Challenger',
+                description: 'Axé sur la performance, la vitesse et la compétition. Recherche la technologie de pointe et la précision pour repousser ses limites sur pistes damées et en compétition.',
+                ages: [10, 45, 40, 5],
+                rangeMarket: [15, 45, 40],
+                rangeDecathlon: [40, 50, 10],
+                statusDecathlon: [85, 15]
+            },
+            crew: {
+                title: 'Profil : Le Crew',
+                description: 'Focalisé sur le freestyle, le style et l\'appartenance à une communauté. Privilégie la durabilité, un design audacieux et du matériel adapté aux snowparks et au hors-piste ludique.',
+                ages: [55, 40, 5, 0],
+                rangeMarket: [30, 50, 20],
+                rangeDecathlon: [60, 35, 5],
+                statusDecathlon: [50, 50]
+            },
+            explorer: {
+                title: 'Profil : L\'Explorer',
+                description: 'En quête de découverte, de contact avec la nature et de dépassement de soi. Apprécie la polyvalence, le confort et la fiabilité pour le ski de randonnée, le freeride et l\'exploration de nouveaux terrains.',
+                ages: [15, 40, 35, 10],
+                rangeMarket: [30, 35, 35],
+                rangeDecathlon: [50, 48, 2],
+                statusDecathlon: [30, 70]
+            }
+        };
+
+        const chartInstances = {};
+
+        const initGlobalChart = () => {
+             new Chart(document.getElementById('globalProfileChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['L\'Explorer', 'Le Challenger', 'Le Crew'],
+                    datasets: [{
+                        data: [55, 30, 15],
+                        backgroundColor: ['#1A4E5F', '#227272', '#A49175'],
+                        borderColor: '#fff',
+                        borderWidth: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        };
+
+        const initProfileCharts = () => {
+            const commonOptions = { responsive: true, maintainAspectRatio: false };
+            const tooltipTitleCallback = {
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                const item = tooltipItems[0];
+                                let label = item.chart.data.labels[item.dataIndex];
+                                return Array.isArray(label) ? label.join(' ') : label;
+                            }
+                        }
+                    },
+                    legend: { position: 'bottom' }
+                }
+            };
+
+            chartInstances.customer = new Chart(document.getElementById('profile-customer-chart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Cible à Conquérir', 'Client Actuel'],
+                    datasets: [{ data: [], backgroundColor: ['#E0D6C3', '#1A4E5F'] }]
+                },
+                options: { ...commonOptions, ...tooltipTitleCallback }
+            });
+
+            chartInstances.age = new Chart(document.getElementById('profile-age-chart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Gen Z', 'Millennials', 'Gen X', 'Boomers'],
+                    datasets: [{ label: 'Répartition (%)', data: [], backgroundColor: '#227272' }]
+                },
+                options: { ...commonOptions, indexAxis: 'y', plugins: { legend: { display: false } } }
+            });
+
+            const radarOptions = {
+                ...commonOptions,
+                scales: { r: { angleLines: { display: true }, suggestedMin: 0, suggestedMax: 50, pointLabels: { font: { size: 14 } } } },
+                plugins: { legend: { display: false } }
+            };
+
+            chartInstances.rangeMarket = new Chart(document.getElementById('profile-range-market-chart'), {
+                type: 'radar',
+                data: {
+                    labels: ['Entrée', 'Milieu', 'Haut de Gamme'],
+                    datasets: [{ label: 'Marché Mondial (%)', data: [], backgroundColor: 'rgba(34, 114, 114, 0.2)', borderColor: '#227272', pointBackgroundColor: '#227272' }]
+                },
+                options: radarOptions
+            });
+
+            chartInstances.rangeDecathlon = new Chart(document.getElementById('profile-range-decathlon-chart'), {
+                type: 'radar',
+                data: {
+                    labels: ['Entrée', 'Milieu', 'Haut de Gamme'],
+                    datasets: [{ label: 'Decathlon (%)', data: [], backgroundColor: 'rgba(164, 145, 117, 0.2)', borderColor: '#A49175', pointBackgroundColor: '#A49175' }]
+                },
+                options: radarOptions
+            });
+        };
+
+        const updateDashboard = (profile) => {
+            const profileData = data[profile];
+
+            document.getElementById('profile-title').innerText = profileData.title;
+            document.getElementById('profile-description').innerText = profileData.description;
+
+            chartInstances.customer.data.datasets[0].data = profileData.statusDecathlon;
+            chartInstances.customer.update();
+
+            chartInstances.age.data.datasets[0].data = profileData.ages;
+            chartInstances.age.update();
+            
+            chartInstances.rangeMarket.data.datasets[0].data = profileData.rangeMarket;
+            chartInstances.rangeMarket.update();
+
+            chartInstances.rangeDecathlon.data.datasets[0].data = profileData.rangeDecathlon;
+            chartInstances.rangeDecathlon.update();
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.profile === profile);
+            });
+        };
+        
+        const setupEventListeners = () => {
+            const overviewBtn = document.getElementById('overview-btn');
+            const analysisBtn = document.getElementById('analysis-btn');
+            const overviewSection = document.getElementById('overview-section');
+            const analysisSection = document.getElementById('analysis-section');
+
+            overviewBtn.addEventListener('click', () => {
+                overviewSection.classList.remove('hidden');
+                analysisSection.classList.add('hidden');
+                overviewBtn.classList.add('active');
+                analysisBtn.classList.remove('active');
+            });
+
+            analysisBtn.addEventListener('click', () => {
+                overviewSection.classList.add('hidden');
+                analysisSection.classList.remove('hidden');
+                overviewBtn.classList.remove('active');
+                analysisBtn.classList.add('active');
+            });
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    updateDashboard(btn.dataset.profile);
+                });
+            });
+        };
+
+        window.onload = () => {
+            initGlobalChart();
+            initProfileCharts();
+            updateDashboard('challenger');
+            setupEventListeners();
+        };
+    </script>
+</body>
+</html>
